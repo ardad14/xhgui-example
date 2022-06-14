@@ -1,0 +1,100 @@
+version: '3'
+services:
+
+    #PHP Service
+    xhgui-example-app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: php:8.1-fpm
+        container_name: xhgui-example-app
+        restart: unless-stopped
+        tty: true
+        environment:
+            PHP_IDE_CONFIG: "serverName=xhgui"
+            XDEBUG_SESSION: docker-server
+            SERVICE_NAME: xhgui-example-app
+            SERVICE_TAGS: dev
+        working_dir: /var/www
+        volumes:
+            - ./:/var/www
+            - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+        networks:
+            - app-network
+
+    #Nginx Service
+    xhgui-example-nginx:
+        image: nginx:alpine
+        container_name: xhgui-example-nginx
+        restart: unless-stopped
+        tty: true
+        ports:
+            - "80:80"
+            - "443:443"
+        volumes:
+            - ./:/var/www
+            - ./docker/nginx/conf.d/:/etc/nginx/conf.d/
+            - ./docker/nginx/ssl:/etc/nginx/ssl
+        networks:
+            - app-network
+
+    #MySQL Service
+    xhgui-example-db:
+        image: mysql:8.0.28
+        container_name: xhgui-example-db
+        restart: unless-stopped
+        tty: true
+        ports:
+            - "3306:3306"
+        environment:
+            MYSQL_DATABASE: xhgui
+            MYSQL_ROOT_USER: root
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_USER: artem
+            MYSQL_PASSWORD: root
+            SERVICE_TAGS: dev
+            SERVICE_NAME: localhost
+        volumes:
+            - dbdata:/var/lib/mysql-files
+            - ./docker/mysql/my.cnf:/etc/mysql/my.cnf
+        networks:
+            - app-network
+
+
+    xhgui-example-xhgui:
+        #https://hub.docker.com/r/xhgui/xhgui/tags
+        image: xhgui/xhgui:latest
+        container_name: xhgui-example-xhgui
+        restart: always
+        volumes:
+            - ./docker/xhgui/config:/var/www/xhgui/config
+            - ./docker/xhgui/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+        environment:
+            - XHGUI_MONGO_DATABASE=xhprof
+        ports:
+            - "8142:80"
+        networks:
+            - app-network
+
+
+    xhgui-example-mongodb:
+        image: mongo:4.4.1
+        container_name: xhgui-example-mongodb
+        hostname: mongodb
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: root
+            MONGO_INITDB_ROOT_PASSWORD: root
+        ports:
+            - "27017:27017"
+        networks:
+            - app-network
+
+#Docker Networks
+networks:
+    app-network:
+        driver: bridge
+
+#Volumes
+volumes:
+    dbdata:
+        driver: local
